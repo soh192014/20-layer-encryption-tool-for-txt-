@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-language Demo</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+  #langSelect { position: fixed; top: 20px; right: 20px; }
+  .fadeText { transition: opacity 0.3s; }
+  .hidden { opacity: 0; }
+
+  /* 顶部进度条 */
+  #progressBarContainer {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 4px;
+    background: #ddd;
+    display: none;
+  }
+  #progressBar {
+    width: 0%; height: 100%;
+    background: #4caf50;
+    transition: width 0.3s;
+  }
+</style>
+</head>
+<body>
+  <div id="progressBarContainer">
+    <div id="progressBar"></div>
+  </div>
+
+  <select id="langSelect">
+    <option value="en">English</option>
+    <option value="zh">中文</option>
+    <option value="ms">Bahasa Melayu</option>
+  </select>
+
+  <h1 id="title" class="fadeText"></h1>
+  <p id="desc" class="fadeText"></p>
+  <button id="btnEncrypt" class="fadeText"></button>
+  <button id="btnDecrypt" class="fadeText"></button>
+
+<script>
+const translations = {
+  en: {
+    title: "20-Layer Encryption Tool",
+    desc: "Enter text and encrypt/decrypt with 20 layers.",
+    encrypt: "Encrypt",
+    decrypt: "Decrypt"
+  },
+  zh: {
+    title: "20层加密工具",
+    desc: "输入文字并进行20层加密/解密。",
+    encrypt: "加密",
+    decrypt: "解密"
+  },
+  ms: {
+    title: "Alat Penyulitan 20-Lapisan",
+    desc: "Masukkan teks dan lakukan penyulitan/penyah-sulitan dengan 20 lapisan.",
+    encrypt: "Sulitkan",
+    decrypt: "Nyah-sulitkan"
+  }
+};
+
+function showProgress(callback) {
+  const container = document.getElementById("progressBarContainer");
+  const bar = document.getElementById("progressBar");
+  let progress = 0;
+
+  container.style.display = "block";
+  bar.style.width = "0%";
+
+  const interval = setInterval(() => {
+    progress += Math.random() * 30; // 模拟加载
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(interval);
+      setTimeout(() => {
+        container.style.display = "none";
+        callback(); // 加载完成后执行
+      }, 200);
+    }
+    bar.style.width = progress + "%";
+  }, 200);
+}
+
+function applyTranslations(lang) {
+  showProgress(() => {
+    const dict = translations[lang] || translations.en;
+    const ids = ["title", "desc", "btnEncrypt", "btnDecrypt"];
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.add("hidden");
+      setTimeout(() => {
+        el.innerText = dict[id.replace("btn","").toLowerCase()] || dict[id];
+        el.classList.remove("hidden");
+      }, 300);
+    });
+
+    localStorage.setItem("lang", lang); // 保存语言选择
+  });
+}
+
+// 初始化：优先用 localStorage，其次检测浏览器语言
+let savedLang = localStorage.getItem("lang");
+if (!savedLang) {
+  const browserLang = navigator.language || navigator.userLanguage;
+  if (browserLang.startsWith("zh")) savedLang = "zh";
+  else if (browserLang.startsWith("ms")) savedLang = "ms";
+  else savedLang = "en";
+}
+
+document.getElementById("langSelect").value = savedLang;
+applyTranslations(savedLang);
+
+document.getElementById("langSelect").addEventListener("change", e => {
+  applyTranslations(e.target.value);
+});
+</script>
+</body>
+</html>

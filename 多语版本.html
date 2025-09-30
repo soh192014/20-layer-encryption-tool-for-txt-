@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>20-Layer Encryptor 🌐</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(0,0,0,0.6);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+      display: inline-block;
+      animation: fadeIn 1s ease;
+    }
+    @keyframes fadeIn { from {opacity:0; transform:translateY(20px);} to {opacity:1; transform:translateY(0);} }
+    button, select {
+      margin: 5px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover, select:hover { transform: scale(1.05); }
+    textarea { width: 90%; height: 100px; margin: 10px 0; border-radius: 8px; padding: 10px; }
+    progress { width: 100%; height: 20px; margin-top: 10px; }
+    #progressText { margin: 5px; font-weight: bold; }
+    #log { text-align: left; background: #111; padding: 10px; border-radius: 8px; height: 150px; overflow-y: auto; }
+    #fireworksCanvas { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; }
+  </style>
+</head>
+<body>
+  <h1>20-Layer Encryptor 🌐</h1>
+  <div style="text-align:right; margin-bottom:10px;">
+    <label for="languageSelect">🌐</label>
+    <select id="languageSelect"></select>
+  </div>
+  <div class="card">
+    <textarea id="inputText" placeholder="Enter text here..."></textarea><br>
+    <input type="file" id="fileInput"><br>
+    <input type="text" id="password" placeholder="Enter password(s) (comma separated)"><br>
+    <button onclick="encryptText()" id="encryptBtn"></button>
+    <button onclick="decryptText()" id="decryptBtn"></button>
+    <button onclick="encryptFile()" id="encryptFileBtn"></button>
+    <button onclick="decryptFile()" id="decryptFileBtn"></button><br>
+    <progress id="progressBar" value="0" max="20"></progress>
+    <div id="progressText">0%</div>
+    <textarea id="outputText" placeholder="Result will appear here..."></textarea><br>
+    <button onclick="copyOutput()" id="copyBtn"></button>
+    <label><input type="checkbox" id="fireworksToggle"> Fireworks Effect</label>
+    <h3 id="logTitle"></h3>
+    <div id="log"></div>
+  </div>
+  <canvas id="fireworksCanvas"></canvas>
+
+  <script>
+    const translations = {
+      en: {
+        encrypt: "Encrypt Text",
+        decrypt: "Decrypt Text",
+        encryptFile: "Encrypt File",
+        decryptFile: "Decrypt File",
+        copy: "Copy Result",
+        logTitle: "Logs",
+        enterPassword: "Please enter a password",
+        finished: "✅ Finished",
+        copied: "📋 Copied to clipboard!"
+      },
+      zh: {
+        encrypt: "加密文本",
+        decrypt: "解密文本",
+        encryptFile: "加密文件",
+        decryptFile: "解密文件",
+        copy: "复制结果",
+        logTitle: "日志",
+        enterPassword: "请输入密码",
+        finished: "✅ 完成",
+        copied: "📋 已复制到剪贴板!"
+      },
+      es: {
+        encrypt: "Encriptar Texto",
+        decrypt: "Descifrar Texto",
+        encryptFile: "Encriptar Archivo",
+        decryptFile: "Descifrar Archivo",
+        copy: "Copiar Resultado",
+        logTitle: "Registros",
+        enterPassword: "Por favor ingrese una contraseña",
+        finished: "✅ Terminado",
+        copied: "📋 ¡Copiado al portapapeles!"
+      },
+      fr: {
+        encrypt: "Chiffrer le Texte",
+        decrypt: "Déchiffrer le Texte",
+        encryptFile: "Chiffrer le Fichier",
+        decryptFile: "Déchiffrer le Fichier",
+        copy: "Copier Résultat",
+        logTitle: "Journaux",
+        enterPassword: "Veuillez entrer un mot de passe",
+        finished: "✅ Terminé",
+        copied: "📋 Copié dans le presse-papiers !"
+      },
+      jp: {
+        encrypt: "テキストを暗号化",
+        decrypt: "テキストを復号化",
+        encryptFile: "ファイルを暗号化",
+        decryptFile: "ファイルを復号化",
+        copy: "結果をコピー",
+        logTitle: "ログ",
+        enterPassword: "パスワードを入力してください",
+        finished: "✅ 完了",
+        copied: "📋 クリップボードにコピーしました！"
+      },
+      ar: {
+        encrypt: "تشفير النص",
+        decrypt: "فك تشفير النص",
+        encryptFile: "تشفير الملف",
+        decryptFile: "فك تشفير الملف",
+        copy: "نسخ النتيجة",
+        logTitle: "السجلات",
+        enterPassword: "الرجاء إدخال كلمة المرور",
+        finished: "✅ تم",
+        copied: "📋 تم النسخ إلى الحافظة!"
+      },
+      ms: {
+        encrypt: "Sulitkan Teks",
+        decrypt: "Nyahkod Teks",
+        encryptFile: "Sulitkan Fail",
+        decryptFile: "Nyahkod Fail",
+        copy: "Salin Keputusan",
+        logTitle: "Log",
+        enterPassword: "Sila masukkan kata laluan",
+        finished: "✅ Selesai",
+        copied: "📋 Disalin ke papan klip!"
+      }
+    };
+
+    const languageSelect = document.getElementById('languageSelect');
+    const userLang = navigator.language.startsWith('zh') ? 'zh' :
+                     navigator.language.startsWith('es') ? 'es' :
+                     navigator.language.startsWith('fr') ? 'fr' :
+                     navigator.language.startsWith('ja') ? 'jp' :
+                     navigator.language.startsWith('ar') ? 'ar' :
+                     navigator.language.startsWith('ms') ? 'ms' : 'en';
+
+    Object.keys(translations).forEach(lang => {
+      const opt = document.createElement('option');
+      opt.value = lang;
+      opt.textContent = lang.toUpperCase();
+      languageSelect.appendChild(opt);
+    });
+
+    languageSelect.value = userLang;
+
+    function setLanguage(lang) {
+      const t = translations[lang];
+      document.getElementById('encryptBtn').textContent = t.encrypt;
+      document.getElementById('decryptBtn').textContent = t.decrypt;
+      document.getElementById('encryptFileBtn').textContent = t.encryptFile;
+      document.getElementById('decryptFileBtn').textContent = t.decryptFile;
+      document.getElementById('copyBtn').textContent = t.copy;
+      document.getElementById('logTitle').textContent = t.logTitle;
+    }
+
+    languageSelect.addEventListener('change', () => setLanguage(languageSelect.value));
+    setLanguage(userLang);
+
+    function logMessage(msg) {
+      const log = document.getElementById('log');
+      log.innerHTML += msg + "<br>";
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateProgress(i) {
+      const bar = document.getElementById('progressBar');
+      bar.value = i;
+      document.getElementById('progressText').textContent = Math.round((i/20)*100) + "%";
+    }
+
+    async function encryptText() {
+      const input = document.getElementById('inputText').value;
+      const passwords = document.getElementById('password').value.split(',');
+      if (!passwords[0]) { alert(translations[languageSelect.value].enterPassword); return; }
+      let result = input;
+      for (let i=0;i<20;i++) { result = CryptoJS.AES.encrypt(result, passwords[i%passwords.length]).toString(); updateProgress(i+1); await new Promise(r=>setTimeout(r,50)); }
+      document.getElementById('outputText').value = result;
+      logMessage(translations[languageSelect.value].finished);
+    }
+
+    async function decryptText() {
+      const input = document.getElementById('inputText').value;
+      const passwords = document.getElementById('password').value.split(',');
+      if (!passwords[0]) { alert(translations[languageSelect.value].enterPassword); return; }
+      let result = input;
+      for (let i=19;i>=0;i--) { result = CryptoJS.AES.decrypt(result, passwords[i%passwords.length]).toString(CryptoJS.enc.Utf8); updateProgress(20-i); await new Promise(r=>setTimeout(r,50)); }
+      document.getElementById('outputText').value = result;
+      logMessage(translations[languageSelect.value].finished);
+      if (document.getElementById('fireworksToggle').checked) startFireworks();
+    }
+
+    function copyOutput() {
+      const text = document.getElementById('outputText').value;
+      navigator.clipboard.writeText(text);
+      logMessage(translations[languageSelect.value].copied);
+    }
+
+    async function encryptFile() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return;
+      const passwords = document.getElementById('password').value.split(',');
+      if (!passwords[0]) { alert(translations[languageSelect.value].enterPassword); return; }
+      const arrayBuffer = await file.arrayBuffer();
+      let wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
+      let result = wordArray;
+      for (let i=0;i<20;i++) { result = CryptoJS.AES.encrypt(result, passwords[i%passwords.length]); updateProgress(i+1); await new Promise(r=>setTimeout(r,50)); }
+      const base64 = result.toString();
+      document.getElementById('outputText').value = base64;
+      const blob = new Blob([base64], {type:'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = file.name+".enc";
+      a.click();
+      logMessage(translations[languageSelect.value].finished + " 📥 .enc");
+    }
+
+    async function decryptFile() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return;
+      const passwords = document.getElementById('password').value.split(',');
+      if (!passwords[0]) { alert(translations[languageSelect.value].enterPassword); return; }
+      const base64 = await file.text();
+      let result = base64;
+      for (let i=19;i>=0;i--) { result = CryptoJS.AES.decrypt(result, passwords[i%passwords.length]).toString(CryptoJS.enc.Latin1); updateProgress(20-i); await new Promise(r=>setTimeout(r,50)); }
+      const bytes = new TextEncoder().encode(result);
+      const blob = new Blob([bytes]);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = file.name.replace(/\.enc$/, '');
+      a.click();
+      logMessage(translations[languageSelect.value].finished + " 📥 file");
+      if (document.getElementById('fireworksToggle').checked) startFireworks();
+    }
+
+    // Fireworks effect
+    const canvas = document.getElementById('fireworksCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    function startFireworks(){
+      const particles = [];
+      for(let i=0;i<100;i++){
+        particles.push({x:canvas.width/2,y:canvas.height/2,angle:Math.random()*2*Math.PI,speed:Math.random()*5+2,radius:2+Math.random()*2,alpha:1});
+      }
+      function animate(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        particles.forEach(p=>{
+          p.x += Math.cos(p.angle)*p.speed;
+          p.y += Math.sin(p.angle)*p.speed;
+          p.alpha -= 0.01;
+          ctx.fillStyle = `rgba(255,${Math.random()*255},0,${p.alpha})`;
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.radius,0,2*Math.PI);
+          ctx.fill();
+        });
+        if(particles.some(p=>p.alpha>0)) requestAnimationFrame(animate);
+      }
+      animate();
+    }
+  </script>
+</body>
+</html>

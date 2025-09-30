@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>20-Layer Encryption Tool (Advanced)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+      animation: fadeIn 1s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(20px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+    button {
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      margin: 10px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    textarea {
+      width: 90%;
+      height: 100px;
+      border-radius: 8px;
+      border: none;
+      padding: 10px;
+      margin: 10px 0;
+      resize: none;
+      background: #2a2a2a;
+      color: #eee;
+    }
+    .progress-container {
+      margin: 20px 0;
+    }
+    .progress-bar {
+      width: 80%;
+      height: 24px;
+      border-radius: 12px;
+      background: #333;
+      margin: auto;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff6a00, #ee0979);
+      text-align: center;
+      line-height: 24px;
+      color: white;
+      font-weight: bold;
+      transition: width 0.2s ease;
+    }
+    .logs {
+      text-align: left;
+      margin-top: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+    }
+    canvas#fireworks {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .toggle {
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔐 20-Layer Encryption Tool (Advanced)</h1>
+    <p>Supports text & file encryption, multi-password mode, progress bar, dark mode, and fireworks effect 🎆</p>
+
+    <label>Enter password(s) (separate multiple with commas):</label><br>
+    <input id="password" type="text" style="width:80%; padding:8px; border-radius:8px; border:none; background:#2a2a2a; color:#eee;"/><br>
+
+    <textarea id="inputText" placeholder="Enter text to encrypt/decrypt here, or upload a file"></textarea><br>
+
+    <input type="file" id="fileInput"><br>
+
+    <button onclick="encryptText()">🔒 Encrypt (20 layers)</button>
+    <button onclick="decryptText()">🔓 Decrypt</button>
+    <button onclick="copyOutput()">📋 Copy Output</button>
+    <button onclick="downloadOutput()">📥 Download Output</button>
+
+    <div class="toggle">
+      <label><input type="checkbox" id="fireworkToggle" checked> Launch fireworks after decryption 🎆</label>
+    </div>
+
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill">0%</div>
+      </div>
+    </div>
+
+    <textarea id="outputText" placeholder="Output result"></textarea>
+
+    <div class="logs" id="logs"></div>
+  </div>
+
+  <canvas id="fireworks"></canvas>
+
+  <script>
+    async function getKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw", enc.encode(password), {name: "PBKDF2"}, false, ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {name: "PBKDF2", salt: salt, iterations: 200000, hash: "SHA-256"},
+        keyMaterial, {name: "AES-GCM", length: 256}, true, ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptLayer(data, password) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await getKey(password, salt);
+      const encrypted = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, data);
+      return {salt: Array.from(salt), iv: Array.from(iv), ct: Array.from(new Uint8Array(encrypted))};
+    }
+
+    async function decryptLayer(layer, password) {
+      const salt = new Uint8Array(layer.salt);
+      const iv = new Uint8Array(layer.iv);
+      const ct = new Uint8Array(layer.ct);
+      const key = await getKey(password, salt);
+      return crypto.subtle.decrypt({name: "AES-GCM", iv}, key, ct);
+    }
+
+    function log(msg) {
+      const logs = document.getElementById("logs");
+      logs.innerHTML += msg + "<br>";
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function updateProgress(step, total) {
+      const percent = Math.floor((step/total)*100);
+      const fill = document.getElementById("progressFill");
+      fill.style.width = percent+"%";
+      fill.textContent = percent+"%";
+    }
+
+    async function encryptText() {
+      log("Encryption started...");
+      const passwords = document.getElementById("password").value.split(",").map(s=>s.trim()).filter(s=>s);
+      let data;
+      if(document.getElementById("fileInput").files.length>0){
+        data = await document.getElementById("fileInput").files[0].arrayBuffer();
+      } else {
+        data = new TextEncoder().encode(document.getElementById("inputText").value);
+      }
+      let obj = {layers:[]};
+      for(let i=0;i<20;i++){
+        const pw = passwords[i % passwords.length] || "default";
+        data = await encryptLayer(data, pw);
+        obj.layers.push(data);
+        updateProgress(i+1,20);
+      }
+      const json = JSON.stringify(obj);
+      const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)));
+      document.getElementById("outputText").value = b64;
+      log("✅ Encryption complete!");
+    }
+
+    async function decryptText() {
+      try{
+        log("Decryption started...");
+        const passwords = document.getElementById("password").value.split(",").map(s=>s.trim()).filter(s=>s);
+        const b64 = document.getElementById("inputText").value.trim();
+        const json = new TextDecoder().decode(Uint8Array.from(atob(b64), c=>c.charCodeAt(0)));
+        const obj = JSON.parse(json);
+        let data;
+        for(let i=19;i>=0;i--){
+          const pw = passwords[i % passwords.length] || "default";
+          data = await decryptLayer(obj.layers[i], pw);
+          updateProgress(20-i,20);
+        }
+        try{
+          const text = new TextDecoder().decode(data);
+          document.getElementById("outputText").value = text;
+          log("✅ Successfully decrypted text");
+        }catch{
+          const blob = new Blob([data]);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "decrypted_file";
+          a.click();
+          log("📥 Successfully decrypted file");
+        }
+        if(document.getElementById("fireworkToggle").checked){
+          launchFireworks();
+        }
+      }catch(e){
+        log("❌ Decryption failed: "+e);
+      }
+    }
+
+    function copyOutput(){
+      const out=document.getElementById("outputText");
+      out.select();
+      document.execCommand("copy");
+      log("📋 Output copied");
+    }
+
+    function downloadOutput(){
+      const blob = new Blob([document.getElementById("outputText").value], {type:"text/plain"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "output.txt";
+      a.click();
+      log("📥 Output downloaded");
+    }
+
+    // --- Fireworks effect ---
+    const canvas = document.getElementById("fireworks");
+    const ctx = canvas.getContext("2d");
+    let particles=[];
+    function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+    window.onresize=resize;resize();
+    function launchFireworks(){
+      for(let i=0;i<100;i++){
+        particles.push({
+          x:canvas.width/2,y:canvas.height/2,
+          vx:(Math.random()-0.5)*8,vy:(Math.random()-0.5)*8,
+          life:100,color:`hsl(${Math.random()*360},100%,50%)`
+        });
+      }
+    }
+    function animate(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      particles.forEach((p,i)=>{
+        p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life--;
+        ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,2*Math.PI); ctx.fill();
+        if(p.life<=0) particles.splice(i,1);
+      });
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>
